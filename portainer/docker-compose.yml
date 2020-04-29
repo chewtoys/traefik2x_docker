@@ -1,0 +1,36 @@
+version: "3.3"
+
+services:
+  portainer:
+    image: portainer/portainer
+    container_name: portainer
+    command: -H "tcp://tasks.agent:9001"
+    labels:
+      - traefik.http.routers.portainer.rule=Host(`${DOMAIN}`) && Path(`/portainer`)"
+      - "traefik.http.routers.portainer.entryPoints=web-secured"
+      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
+      - "traefik.http.services.portainer.loadbalancer.server.port: 9000"
+    networks:
+      - ${TRAEFIK_PUBLIC_NETWORK}
+      - portainer
+    volumes:
+      - web:/data
+
+  agent:
+    image: portainer/agent
+    networks:
+      - portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      mode: global
+    environment:
+      AGENT_CLUSTER_ADDR: tasks.agent
+
+networks:
+  ${TRAEFIK_PUBLIC_NETWORK}:
+    external: true
+  portainer:
+
+volumes:
+  web:

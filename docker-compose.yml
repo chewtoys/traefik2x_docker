@@ -1,0 +1,51 @@
+version: "3.3"
+
+services:
+  traefik:
+    image: "traefik:v2.2"
+    container_name: "traefik22"
+    restart: always
+    networks:
+      - ${TRAEFIK_PUBLIC_NETWORK}
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=false" # set to 'false' on production
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web-secured.address=:443"
+      - "--entrypoints.web-secured.http.tls=true"
+      - "--entrypoints.web.http.redirections.entrypoint.to=web-secured" # force HTTPS
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - --certificatesresolvers.myresolver.acme.email=${EMAIL}
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      # - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
+      # - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  whoami:
+    image: "containous/whoami"
+    container_name: "simple-service"
+    restart: always
+    networks:
+      - ${TRAEFIK_PUBLIC_NETWORK}
+    labels:
+      - "traefik.enable=true"
+      - traefik.http.routers.whoami.rule=Host(`${DOMAIN}`) && Path(`/whoami`)
+      - "traefik.http.routers.whoami.entrypoints=web-secured"
+      - "traefik.http.routers.whoami.tls.certresolver=myresolver"
+
+networks:
+  ${TRAEFIK_PUBLIC_NETWORK}:
+    external: true

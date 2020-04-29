@@ -1,0 +1,1 @@
+Remove the letsencrypt/acme.json file and restart Traefik to issue a valid certificate.

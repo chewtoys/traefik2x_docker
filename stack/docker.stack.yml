@@ -1,0 +1,63 @@
+version: "3.3"
+
+services:
+  traefik:
+    image: "traefik:v2.2"
+    ports:
+      - "80:80"
+      - "8090:8080" # traefik dashboard
+      - "443:443"
+    command:
+      - --api.insecure=false # set to 'false' on production
+      - --api.dashboard=true # see https://docs.traefik.io/v2.0/operations/dashboard/#secure-mode
+      - --api.debug=true # enable additional endpoints for debugging and profiling
+      - --log.level=DEBUG # debug while we get it working, see https://docs.traefik.io/observability/logs/
+      - --providers.docker=true
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik-public
+      - --providers.docker.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.web-secured.address=:443
+      - --entrypoints.web-secured.http.tls=true
+      ## Let's Encrypt settings
+      ## httpChallenge - use 'mytlschallenge' so dont need to change other service settings
+      - --entrypoints.web.http.redirections.entrypoint.to=web-secured # force HTTPS
+      - --certificatesresolvers.mytlschallenge.acme.httpChallenge.entrypoint=web
+      - --certificatesresolvers.mytlschallenge.acme.email=gcoos3@gmail.com
+      - --certificatesresolvers.mytlschallenge.acme.storage=acme.json
+      ## tlsChallenge
+      # - --entrypoints.web.http.tls.certresolve=mytlschallenge
+      # - --certificatesresolvers.mytlschallenge.acme.tlsChallenge=true
+      # - --certificatesResolvers.mytlschallenge.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+      # - --certificatesResolvers.mytlschallenge.acme.caServer=https://acme-v02.api.letsencrypt.org/directory
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik-public
+    deploy:
+      ## Dynamic Configuration
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
+        - "traefik.http.routers.api.service=api@internal" # Let the dashboard access the traefik api"
+        - "traefik.http.services.api.loadbalancer.server.port=80" # it seems you always need to 'notify' the service
+
+  whoami:
+    image: "containous/whoami"
+    networks:
+      - traefik-public
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.whoami-secured.loadbalancer.server.port=80" # it seems required every time
+        - "traefik.http.routers.whoami-secured.rule=Host(`citizenscience.gcoos.org`) && Path(`/whoami`)"
+        - "traefik.http.routers.whoami-secured.entrypoints=web-secured"
+        - "traefik.http.routers.whoami-secured.tls.certresolver=mytlschallenge"
+
+networks:
+  traefik-public:
+    external: true
+
+volumes:
+  letsencrypt:

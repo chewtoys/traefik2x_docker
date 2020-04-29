@@ -1,0 +1,49 @@
+debug = false
+
+logLevel = "ERROR"
+defaultEntryPoints = ["web-secured", "web"]
+
+[entryPoints]
+  [entryPoints.dashboard]
+    address = ":8080"
+    # [entryPoints.dashboard.auth]
+    #   [entryPoints.dashboard.auth.basic]
+    #     userFile = '.htpasswd' 
+  [entryPoints.web]
+    address = ":80"
+    [entryPoints.web.http]
+      [entryPoints.web.http.redirections]
+        [entryPoints.web.http.redirections.entryPoint]
+          to = "web-secured"
+          scheme = "https"
+  [entryPoints.web-secured]
+    address = ":443"
+    [entryPoints.web-secured.http.tls]
+      certResolver = "myresolver"
+
+[api]
+
+[certificatesResolvers.myresolver.acme]
+  email = "gcoos3@gmail.com"
+  storage = "letencrypt/acme.json"
+  # caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"
+  caServer = "https://acme-v02.api.letsencrypt.org/directory"
+  [certificatesResolvers.myresolver.acme.httpChallenge]
+    # used during the challenge
+    entryPoint = "web"
+  
+[providers.docker]
+  watrch = true
+
+[file]
+
+[tracing]
+  serviceName = "tracing"
+
+[metrics]
+  [metrics.prometheus]
+  entryPoint = "metrics"
+
+[log]
+  filePath = "./log/traefik.log"
+  format = "json"
