@@ -8,21 +8,20 @@ services:
     networks:
       - ${TRAEFIK_PUBLIC_NETWORK}
     command:
-      #- "--log.level=DEBUG"
       - "--api.insecure=false" # set to 'false' on production
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=web-secured"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--entrypoints.web-secured.address=:443"
       - "--entrypoints.web-secured.http.tls=true"
-      - "--entrypoints.web.http.redirections.entrypoint.to=web-secured" # force HTTPS
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - --certificatesresolvers.myresolver.acme.email=${EMAIL}
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
-      # - "80:80"
+      - "80:80"
       - "443:443"
       - "8080:8080"
     volumes:
@@ -30,9 +29,14 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     labels:
       - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+      - traefik.http.routers.api.rule=Host(`${DOMAIN}`) && Path(`/traefik`)
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.routers.app.middlewares=https_redirect"
+      - "traefik.http.routers.appsecured.entrypoints=web-secured"
+      - "traefik.http.routers.appsecured.tls=true"
       - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
       - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
-      # - "traefik.http.services.api.loadbalancer.server.port=8080"
 
   whoami:
     image: "containous/whoami"
@@ -47,5 +51,5 @@ services:
       - "traefik.http.routers.whoami.tls.certresolver=myresolver"
 
 networks:
-  ${TRAEFIK_PUBLIC_NETWORK}:
+  traefik-public:
     external: true
