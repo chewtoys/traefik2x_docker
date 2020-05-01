@@ -22,6 +22,7 @@ defaultEntryPoints = ["web-secured", "web"]
       certResolver = "myresolver"
 
 [api]
+  dashboard = true
 
 [certificatesResolvers.myresolver.acme]
   email = "gcoos3@gmail.com"
